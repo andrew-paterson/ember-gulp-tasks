@@ -13,11 +13,24 @@ emberAddons.forEach(addonPath => {
 		addonPath: addonPath,
 		dependentPaths: []
 	};
+	var gitHEADfileLines = fs.readFileSync(`${addonPath}/.git/HEAD`, "utf8").split(/\r?\n/);
+	gitHEADfileLines.forEach(line => {
+		if (line.indexOf('ref:') > -1) {
+			object.currentBranch = line.split('/')[line.split('/').length-1];
+		}
+	});
 	var addonName = addonPath.split('/').slice(-1)[0];
 	emberApps.forEach(emberAppPath => {
 		var path = `${emberAppPath}/node_modules/${addonName}`;
+		var packagefile = `${emberAppPath}/package.json`;
+		var packageJSONContent = JSON.parse(fs.readFileSync(packagefile, "utf8"));
+		var packageVersion = packageJSONContent.devDependencies[addonName];
+		var packageBranch = packageVersion.split('#')[1];
 		if (fs.existsSync(path)) {
-			object.dependentPaths.push(path);
+			object.dependentPaths.push({
+				path: path,
+				installedBranch: packageBranch
+			});
 		}
 	});
 	syncObjects.push(object);
@@ -29,13 +42,17 @@ var addonWatchPaths = emberAddons.map(addonPath => {
 	return `${addonPath}/app/**/*`;
 }));
 
-gulp.task('sync-local-addons', function () {
+gulp.task('sync-local-addons', function () {	
 	syncObjects.forEach(syncObject => {
 		syncObject.dependentPaths.forEach(dependentPath => {
+			if (syncObject.currentBranch !== dependentPath.installedBranch) {
+				console.log('Not for you ' + syncObject.addonPath);
+				return;
+			}
 			['app', 'addon'].forEach(subDir => {
 				return gulp.src('')
-					.pipe(dirSync(`${syncObject.addonPath}/${subDir}`, `${dependentPath}/${subDir}`, {
-						printSummary: false
+					.pipe(dirSync(`${syncObject.addonPath}/${subDir}`, `${dependentPath.path}/${subDir}`, {
+						printSummary: true
 					}))
 					.on('error', gutil.log);
 			});
