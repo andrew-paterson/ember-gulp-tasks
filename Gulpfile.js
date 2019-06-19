@@ -6,28 +6,35 @@ const settings = require('./settings.json');
 const browserSyncSites = settings.browserSyncSites || [];
 const emberAddons = settings.emberAddons || [];
 const emberApps = settings.emberApps || [];
+const chalk = require('chalk');
 
 var syncObjects = [];
 emberAddons.forEach(addonPath => {
+	var addonName = addonPath.split('/').slice(-1)[0];
 	var object = {
 		addonPath: addonPath,
+		addonName: addonName,
 		dependentPaths: []
 	};
 	var gitHEADfileLines = fs.readFileSync(`${addonPath}/.git/HEAD`, "utf8").split(/\r?\n/);
 	gitHEADfileLines.forEach(line => {
 		if (line.indexOf('ref:') > -1) {
 			object.currentBranch = line.split('/')[line.split('/').length-1];
+		} else if (line.match(/\b[0-9a-f]{40}\b/)) {
+			object.currentBranch = line;
 		}
 	});
-	var addonName = addonPath.split('/').slice(-1)[0];
+	
 	emberApps.forEach(emberAppPath => {
 		var path = `${emberAppPath}/node_modules/${addonName}`;
+		var appName = emberAppPath.split('/')[emberAppPath.split('/').length - 1];
 		var packagefile = `${emberAppPath}/package.json`;
 		var packageJSONContent = JSON.parse(fs.readFileSync(packagefile, "utf8"));
 		var packageVersion = packageJSONContent.devDependencies[addonName];
 		var packageBranch = packageVersion.split('#')[1];
 		if (fs.existsSync(path)) {
 			object.dependentPaths.push({
+				name: appName,
 				path: path,
 				installedBranch: packageBranch
 			});
@@ -46,13 +53,18 @@ gulp.task('sync-local-addons', function () {
 	syncObjects.forEach(syncObject => {
 		syncObject.dependentPaths.forEach(dependentPath => {
 			if (syncObject.currentBranch !== dependentPath.installedBranch) {
-				console.log('Not for you ' + syncObject.addonPath);
+				console.log(chalk.red(`${syncObject.addonName} [checked out branch ${syncObject.currentBranch}] was not synced to ${dependentPath.name} [installed branch ${dependentPath.installedBranch}]`));
 				return;
 			}
 			['app', 'addon'].forEach(subDir => {
 				return gulp.src('')
 					.pipe(dirSync(`${syncObject.addonPath}/${subDir}`, `${dependentPath.path}/${subDir}`, {
-						printSummary: true
+						printSummary: function( result ) {
+							if (result.created > 0 || result.updated > 0 || result.removed > 0) {
+								console.log(chalk.green(`${syncObject.addonName}/${subDir} >>> ${dependentPath.name}/${subDir}`)); 
+								gutil.log(chalk.yellow( 'Dir Sync: ' + result.created + ' files created, ' + result.updated + ' files updated, ' + result.removed + ' items deleted, ' + result.same + ' files unchanged' ));
+							}
+						}
 					}))
 					.on('error', gutil.log);
 			});
