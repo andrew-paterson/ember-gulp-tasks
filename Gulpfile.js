@@ -4,12 +4,19 @@ const dirSync = require('gulp-directory-sync');
 const gutil = require('gulp-util');
 const settings = require('./settings.json');
 const browserSyncSites = settings.browserSyncSites || [];
-const emberAddons = settings.emberAddons || [];
+const addonToApp = settings.addonToApp || [];
 const emberApps = settings.emberApps || [];
 const chalk = require('chalk');
 
+function removeLeadingSlash(string) {
+  if (string.split('')[0] === '/') {
+    string = string.substr(1);
+  }
+  return string;
+}
+
 var syncObjects = [];
-emberAddons.forEach(addonPath => {
+addonToApp.from.forEach(addonPath => {
 	var addonName = addonPath.split('/').slice(-1)[0];
 	var object = {
 		addonPath: addonPath,
@@ -18,35 +25,37 @@ emberAddons.forEach(addonPath => {
 	};
 	var gitHEADfileLines = fs.readFileSync(`${addonPath}/.git/HEAD`, "utf8").split(/\r?\n/);
 	gitHEADfileLines.forEach(line => {
-		if (line.indexOf('ref:') > -1) {
-			object.currentBranch = line.split('/')[line.split('/').length-1];
-		} else if (line.match(/\b[0-9a-f]{40}\b/)) {
+		if (line.indexOf('ref:') > -1) { // If the repo has a branch checked out
+			object.currentBranch = line.replace('ref: refs/heads/', '');
+		} else if (line.match(/\b[0-9a-f]{40}\b/)) { // If the repo has a sha checked out
 			object.currentBranch = line;
 		}
 	});
 	
-	emberApps.forEach(emberAppPath => {
-		var path = `${emberAppPath}/node_modules/${addonName}`;
-		var appName = emberAppPath.split('/')[emberAppPath.split('/').length - 1];
-		var packagefile = `${emberAppPath}/package.json`;
-		var packageJSONContent = JSON.parse(fs.readFileSync(packagefile, "utf8"));
-		var packageVersion = packageJSONContent.devDependencies[addonName];
-		var packageBranch = packageVersion.split('#')[1];
+	addonToApp.to.forEach(emberAppPath => {
+    var path = `${emberAppPath}/node_modules/${addonName}`;
 		if (fs.existsSync(path)) {
+			var appName = emberAppPath.split('/')[emberAppPath.split('/').length - 1];
+			// var packagefile = `${emberAppPath}/package.json`;
+			// var packageJSONContent = JSON.parse(fs.readFileSync(packagefile, "utf8"));
+      // var packageVersion = packageJSONContent.devDependencies[addonName];
+      var packageFile = require(`${emberAppPath}/package-lock.json`);
+      var packageVersion = packageFile.dependencies[addonName].from;
+			var packageBranch = packageVersion.split('#')[1];
 			object.dependentPaths.push({
 				name: appName,
 				path: path,
 				installedBranch: packageBranch
-			});
+      });
 		}
 	});
 	syncObjects.push(object);
 });
 
-var addonWatchPaths = emberAddons.map(addonPath => {
-	return `${addonPath}/addon/**/*`;
-}).concat(emberAddons.map(addonPath => {
-	return `${addonPath}/app/**/*`;
+var addonWatchPaths = addonToApp.from.map(addonPath => {
+	return `${removeLeadingSlash(addonPath)}/addon/**/*`;
+}).concat(addonToApp.from.map(addonPath => {
+	return `${removeLeadingSlash(addonPath)}/app/**/*`;
 }));
 
 gulp.task('sync-local-addons', function () {	
@@ -97,8 +106,7 @@ gulp.task('watch', function () {
 	if (browserSyncSites.length > 0) {
 		initiateBrowserSync();
 	}
-
-	gulp.watch(addonWatchPaths, ['sync-local-addons']);
+	gulp.watch(addonWatchPaths, { cwd: '/'}, ['sync-local-addons']);
 });
 
 gulp.task('default', ['sync-local-addons', 'watch']);
