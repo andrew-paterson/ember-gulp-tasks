@@ -4,7 +4,7 @@ const dirSync = require('gulp-directory-sync');
 const gutil = require('gulp-util');
 const settings = require('./settings.json');
 const browserSyncSites = settings.browserSyncSites || [];
-const addonToApp = settings.addonToApp || [];
+const manyToMany = settings.manyToMany || [];
 const emberApps = settings.emberApps || [];
 const chalk = require('chalk');
 
@@ -16,14 +16,14 @@ function removeLeadingSlash(string) {
 }
 
 var syncObjects = [];
-addonToApp.from.forEach(addonPath => {
-	var addonName = addonPath.split('/').slice(-1)[0];
+manyToMany.from.forEach(fromPath => {
+	var addonName = fromPath.split('/').slice(-1)[0];
 	var object = {
-		addonPath: addonPath,
+		fromPath: fromPath,
 		addonName: addonName,
 		dependentPaths: []
 	};
-	var gitHEADfileLines = fs.readFileSync(`${addonPath}/.git/HEAD`, "utf8").split(/\r?\n/);
+	var gitHEADfileLines = fs.readFileSync(`${fromPath}/.git/HEAD`, "utf8").split(/\r?\n/);
 	gitHEADfileLines.forEach(line => {
 		if (line.indexOf('ref:') > -1) { // If the repo has a branch checked out
 			object.currentBranch = line.replace('ref: refs/heads/', '');
@@ -32,14 +32,14 @@ addonToApp.from.forEach(addonPath => {
 		}
 	});
 	
-	addonToApp.to.forEach(emberAppPath => {
-    var path = `${emberAppPath}/node_modules/${addonName}`;
+	manyToMany.to.forEach(toPath => {
+    if (toPath === fromPath) {
+      return;
+    }
+    var path = `${toPath}/node_modules/${addonName}`;
 		if (fs.existsSync(path)) {
-			var appName = emberAppPath.split('/')[emberAppPath.split('/').length - 1];
-			// var packagefile = `${emberAppPath}/package.json`;
-			// var packageJSONContent = JSON.parse(fs.readFileSync(packagefile, "utf8"));
-      // var packageVersion = packageJSONContent.devDependencies[addonName];
-      var packageFile = require(`${emberAppPath}/package-lock.json`);
+			var appName = toPath.split('/')[toPath.split('/').length - 1];
+      var packageFile = require(`${toPath}/package-lock.json`);
       var packageVersion = packageFile.dependencies[addonName].from;
 			var packageBranch = packageVersion.split('#')[1];
 			object.dependentPaths.push({
@@ -49,13 +49,13 @@ addonToApp.from.forEach(addonPath => {
       });
 		}
 	});
-	syncObjects.push(object);
+  syncObjects.push(object);
 });
 
-var addonWatchPaths = addonToApp.from.map(addonPath => {
-	return `${removeLeadingSlash(addonPath)}/addon/**/*`;
-}).concat(addonToApp.from.map(addonPath => {
-	return `${removeLeadingSlash(addonPath)}/app/**/*`;
+var addonWatchPaths = manyToMany.from.map(fromPath => {
+	return `${removeLeadingSlash(fromPath)}/addon/**/*`;
+}).concat(manyToMany.from.map(fromPath => {
+	return `${removeLeadingSlash(fromPath)}/app/**/*`;
 }));
 
 gulp.task('sync-local-addons', function () {	
@@ -67,7 +67,7 @@ gulp.task('sync-local-addons', function () {
 			}
 			['app', 'addon'].forEach(subDir => {
 				return gulp.src('')
-					.pipe(dirSync(`${syncObject.addonPath}/${subDir}`, `${dependentPath.path}/${subDir}`, {
+					.pipe(dirSync(`${syncObject.fromPath}/${subDir}`, `${dependentPath.path}/${subDir}`, {
 						printSummary: function( result ) {
 							if (result.created > 0 || result.updated > 0 || result.removed > 0) {
 								console.log(chalk.green(`${syncObject.addonName}/${subDir} >>> ${dependentPath.name}/${subDir}`)); 
