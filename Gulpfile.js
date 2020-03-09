@@ -61,10 +61,10 @@ var addonWatchPaths = manyToMany.from.map(fromPath => {
 gulp.task('sync-local-addons', function () {	
 	syncObjects.forEach(syncObject => {
 		syncObject.dependentPaths.forEach(dependentPath => {
-			if (syncObject.currentBranch !== dependentPath.installedBranch) {
-				console.log(chalk.red(`${syncObject.addonName} [checked out branch ${syncObject.currentBranch}] was not synced to ${dependentPath.name} [installed branch ${dependentPath.installedBranch}]`));
-				return;
-			}
+			// if (syncObject.currentBranch !== dependentPath.installedBranch) {
+			// 	console.log(chalk.red(`${syncObject.addonName} [checked out branch ${syncObject.currentBranch}] was not synced to ${dependentPath.name} [installed branch ${dependentPath.installedBranch}]`));
+			// 	return;
+			// }
 			['app', 'addon'].forEach(subDir => {
 				return gulp.src('')
 					.pipe(dirSync(`${syncObject.fromPath}/${subDir}`, `${dependentPath.path}/${subDir}`, {
