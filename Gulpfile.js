@@ -3,7 +3,7 @@ const gulp = require('gulp');
 const dirSync = require('gulp-directory-sync');
 const gutil = require('gulp-util');
 const settings = require('./settings.json');
-const browserSyncSites = settings.browserSyncSites || [];
+const browserSyncPorts = settings.browserSyncPorts || [];
 const manyToMany = settings.manyToMany || [];
 const emberApps = settings.emberApps || [];
 const chalk = require('chalk');
@@ -82,7 +82,7 @@ gulp.task('sync-local-addons', function () {
 });
 
 var browserSyncInstances = {};
-browserSyncSites.forEach(browserSyncSite => {
+browserSyncPorts.forEach(browserSyncSite => {
 	browserSyncInstances[browserSyncSite] = require('browser-sync').create();
 });
 
@@ -91,19 +91,19 @@ gulp.task('watch', function () {
 	var browserSyncOptions = function (index) {
 		return {
 			open: 'external',
-			proxy: `localhost:${browserSyncSites[index]}`,
+			proxy: `localhost:${browserSyncPorts[index]}`,
 			port: browserSyncPort + index
 		};
 	};
 	var initiateBrowserSync = function (index) {
 		index = index || 0;
-		browserSyncInstances[browserSyncSites[index]].init(browserSyncOptions(index), function () {
-			if (browserSyncSites[index + 1]) {
+		browserSyncInstances[browserSyncPorts[index]].init(browserSyncOptions(index), function () {
+			if (browserSyncPorts[index + 1]) {
 				initiateBrowserSync(index + 1);
 			}
 		});
 	};
-	if (browserSyncSites.length > 0) {
+	if (browserSyncPorts.length > 0) {
 		initiateBrowserSync();
 	}
 	gulp.watch(addonWatchPaths, { cwd: '/'}, ['sync-local-addons']);
