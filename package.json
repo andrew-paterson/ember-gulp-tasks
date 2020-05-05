@@ -1,10 +1,14 @@
 {
   "name": "ember-gulp-tasks",
   "version": "1.0.0",
+  "license": "MIT",
   "author": "Andrew Paterson",
   "devDependencies": {
     "browser-sync": "^2.17.6",
     "gulp": "^3.9.1",
     "gulp-directory-sync": "^1.2.3"
+  },
+  "dependencies": {
+    "chalk": "^2.4.2"
   }
 }
