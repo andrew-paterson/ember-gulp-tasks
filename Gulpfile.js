@@ -5,7 +5,6 @@ const gutil = require('gulp-util');
 const settings = require('./settings.json');
 const browserSyncPorts = settings.browserSyncPorts || [];
 const manyToMany = settings.manyToMany || [];
-const emberApps = settings.emberApps || [];
 const chalk = require('chalk');
 
 function removeLeadingSlash(string) {
@@ -58,15 +57,11 @@ var addonWatchPaths = manyToMany.from.map(fromPath => {
 	return `${removeLeadingSlash(fromPath)}/app/**/*`;
 }));
 
-gulp.task('sync-local-addons', function () {	
+gulp.task('sync-local-addons', function (done) {	
 	syncObjects.forEach(syncObject => {
 		syncObject.dependentPaths.forEach(dependentPath => {
-			// if (syncObject.currentBranch !== dependentPath.installedBranch) {
-			// 	console.log(chalk.red(`${syncObject.addonName} [checked out branch ${syncObject.currentBranch}] was not synced to ${dependentPath.name} [installed branch ${dependentPath.installedBranch}]`));
-			// 	return;
-			// }
 			['app', 'addon'].forEach(subDir => {
-				return gulp.src('')
+				return gulp.src('.', {allowEmpty: true})
 					.pipe(dirSync(`${syncObject.fromPath}/${subDir}`, `${dependentPath.path}/${subDir}`, {
 						printSummary: function( result ) {
 							if (result.created > 0 || result.updated > 0 || result.removed > 0) {
@@ -78,7 +73,8 @@ gulp.task('sync-local-addons', function () {
 					.on('error', gutil.log);
 			});
 		});
-	});
+  });
+  done();
 });
 
 var browserSyncInstances = {};
@@ -106,7 +102,7 @@ gulp.task('watch', function () {
 	if (browserSyncPorts.length > 0) {
 		initiateBrowserSync();
 	}
-	gulp.watch(addonWatchPaths, { cwd: '/'}, ['sync-local-addons']);
+	gulp.watch(addonWatchPaths, { cwd: '/'}, gulp.series('sync-local-addons'));
 });
 
-gulp.task('default', ['sync-local-addons', 'watch']);
+gulp.task('default', gulp.series(['sync-local-addons', 'watch']));
