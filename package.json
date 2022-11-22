@@ -4,7 +4,7 @@
   "license": "MIT",
   "author": "Andrew Paterson",
   "devDependencies": {
-    "browser-sync": "^2.17.6",
+    "browser-sync": "^2.27.10",
     "gulp": "^4.0.2",
     "gulp-directory-sync": "^1.2.3"
   },
